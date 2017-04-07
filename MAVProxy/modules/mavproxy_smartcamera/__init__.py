@@ -27,7 +27,7 @@
 #****************************************************************************
 
 # System Header files and Module Headers
-import time, math, sched, threading
+import time, math, sched, threading, re
 
 # Module Dependent Headers
 from pymavlink import mavutil
@@ -80,6 +80,7 @@ class SmartCameraModule(mp_module.MPModule):
         self.add_command('setCamExposureMode', self.__vCmdSetCamExposureMode, "Set Camera Exposure Mode")
         self.add_command('getAllPictures', self.__vCmdGetAllPictures, "Download all flight pictures, filename as argument optional")
         self.CamRetryScheduler = sched.scheduler(time.time, time.sleep)
+        self.boRetryStatus = False
         self.ProgramAuto = 1
         self.Aperture = 2
         self.Shutter = 3
@@ -88,12 +89,20 @@ class SmartCameraModule(mp_module.MPModule):
         self.SuperiorAuto = 6
         self.WirelessPort = sc_config.config.get_string("general", 'WirelessPort', "wlan0")
         self.u8RetryTimeout = 0
+        self.u8RetryWaitTime = 5
         self.u8MaxRetries = 5
+        self.boQXCamRetryStatus = False
+        self.u8QXCamNumber = 0
         self.tLastCheckTime = time.time()
-        self.u8KillHeartbeatTimer = 100
+        self.u8KillHeartbeatTimer = 5
+        self.SSID = ""
+        self.PSK = ""
         self.__vRegisterCameras()
 
         self.mpstate = mpstate
+    
+    
+    
         
         # Start a 10 second timer to kill heartbeats as a workaround
         # threading.Timer(10, self.__vKillHeartbeat).start()
@@ -119,22 +128,69 @@ class SmartCameraModule(mp_module.MPModule):
         print("Killing Heartbeat - Solo Workaround")
         self.mpstate.settings.heartbeat = 0
 
- #****************************************************************************
- #   Method Name     : __vRegisterQXCamera
- #
- #   Description     : Tries to connect to a QX camera on the specified Wireless
- #                     port. If no camera is found it will retry every 5 seconds
- #                     until u8MaxRetries is reached.
- #
- #   Parameters      : None
- #
- #   Return Value    : None
- #
- #   Author           : Jaime Machuca
- #
- #****************************************************************************
+#****************************************************************************
+#   Method Name     : __vSetWiFiParameters
+#
+#   Description     : Checks the interfaces file for the correct WiFi Parameters
+#                     if they are different than specified the file is replaced
+#                     so that the next boot connects to the correct WiFi network
+#
+#   Parameters      : None
+#
+#   Return Value    : None
+#
+#   Author           : Jaime Machuca
+#
+#****************************************************************************
+
+    def __vSetWiFiParameters(self,u8CamNumber):
+        self.SSID = sc_config.config.get_string("wifi", 'SSID', "error")
+        self.PSK = sc_config.config.get_string("wifi", 'PSK', "error")
+        print("%s %s" % (self.SSID, self.PSK))
+
+        if self.SSID is "error":
+            print("Error SSID not set on config file")
+            return False
+
+        networkFile = open("/etc/network/interfaces", "r")
+        fileContents = networkFile.read()
+        networkFile.close()
+        
+        if self.SSID not in fileContents:
+            newFile = open("/home/parallels/WifiTemplate.txt", "r")
+            interfacesTemplate = newFile.read()
+            newFile.close()
+            
+            interfacesTemplate = re.sub("%WIFI_SSID%", self.SSID, interfacesTemplate)
+            interfacesTemplate = re.sub("%WIFI_PASSWD%", self.PSK, interfacesTemplate)
+        
+            networkFile = open("/etc/network/interfaces", "w")
+            networkFile.write(interfacesTemplate)
+            networkFile.close()
+        
+            print("Wifi changed please reboot the companion computer")
+            self.master.mav.statustext_send(6,"Camera Controller: Wifi changed please reboot")
+        else:
+            print("Wifi already configured")
+
+
+#****************************************************************************
+#   Method Name     : __vRegisterQXCamera
+#
+#   Description     : Tries to connect to a QX camera on the specified Wireless
+#                     port. If no camera is found it will retry every 5 seconds
+#                     until u8MaxRetries is reached.
+#
+#   Parameters      : None
+#
+#   Return Value    : None
+#
+#   Author           : Jaime Machuca
+#
+#****************************************************************************
 
     def __vRegisterQXCamera(self,u8CamNumber):
+        self.u8QXCamNumber = u8CamNumber
         if (self.u8RetryTimeout < self.u8MaxRetries):
             new_camera = SmartCamera_SonyQX(u8CamNumber, self.WirelessPort)
             if new_camera.boValidCameraFound() is True:
@@ -143,13 +199,15 @@ class SmartCameraModule(mp_module.MPModule):
                 self.master.mav.statustext_send(6,"Camera Controller: Found QX Camera, Ready to Fly")
             else:
                 print("No Valid Camera Found, retry in 5 sec")
+                self.boQXCamRetryStatus = True
                 self.u8RetryTimeout = self.u8RetryTimeout + 1
-                self.CamRetryScheduler.enter(5, 1, self.__vRegisterQXCamera, [u8CamNumber])
-                self.CamRetryScheduler.run()
+                #self.CamRetryScheduler.enter(5, 1, self.__vRegisterQXCamera, [u8CamNumber])
+                #self.CamRetryScheduler.run()
         else:
             print("Max retries reached, No QX Camera Found")
             self.master.mav.statustext_send(3,"Camera Controller: Warning! Camera not found")
-            self.u8RetryTimeout = 0
+            #self.u8RetryTimeout = 0
+            self.boQXCamRetryStatus = False
 
 #****************************************************************************
 #   Method Name     : __vRegisterCameras
@@ -180,6 +238,7 @@ class SmartCameraModule(mp_module.MPModule):
 
             # Sony QX1
             if camera_type == 2:
+                self.__vSetWiFiParameters(i)
                 self.__vRegisterQXCamera(i)
 
         # display number of cameras found
@@ -524,11 +583,26 @@ class SmartCameraModule(mp_module.MPModule):
 
     def idle_task(self):
         now = time.time()
-        if not self.u8KillHeartbeatTimer == 0 and self.tLastCheckTime > 1:
+        telapsedTime = now - self.tLastCheckTime
+        
+        if telapsedTime > 1:
             self.tLastCheckTime = now
-            self.u8KillHeartbeatTimer -= 1
-            if self.u8KillHeartbeatTimer == 0:
-                self.__vKillHeartbeat();
+
+            if self.u8KillHeartbeatTimer > 0:
+                self.u8KillHeartbeatTimer -= 1
+            else:
+                if not self.mpstate.settings.heartbeat == 0:
+                    self.__vKillHeartbeat()
+            
+            if self.boQXCamRetryStatus == True:
+                if self.u8RetryWaitTime > 0:
+                    self.u8RetryWaitTime -= 1
+                    #print ("QX Camera Retry in %f sec" % self.u8RetryWaitTime)
+                else:
+                    self.boQXCamRetryStatus = False
+                    print ("QX Camera Retrying now")
+                    self.u8RetryWaitTime = 5
+                    self.__vRegisterQXCamera(self.u8QXCamNumber)
 
 #****************************************************************************
 #   Method Name     : init
