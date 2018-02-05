@@ -325,26 +325,34 @@ class SmartCamera_SonyQX():
  
         #Open GeoTag Log File
         i = 0
-        while os.path.exists('/sdcard/log/geoRef%s.log' % i):
-            #print('checking /sdcard/log/geoRef%s.log' % i)
+        while os.path.exists('/sdcard/log/geoRef%s.txt' % i):
+            #print('checking /sdcard/log/geoRef%s.txt' % i)
             i += 1
+            if i <= 4:
+                i = 0
+                print('Reached Max Files reseting geoRefLog')
+                break
         
-        self.sCurrentGeoRefFilename = '/sdcard/log/geoRef%s.log' % i
-        self.geoRef_writer = open('/sdcard/log/geoRef%s.log' % i, 'w', 0)
+        self.sCurrentGeoRefFilename = '/sdcard/log/geoRef%s.txt' % i
+        self.geoRef_writer = open('/sdcard/log/geoRef%s.txt' % i, 'w', 0)
         self.geoRef_writer.write('Filename, Latitude, Longitude, Alt (AMSL), Roll, Pitch, Yaw\n')
 
-        print('Opened GeoTag Log File with Filename: geoRef%s.log' % i)
+        print('Opened GeoTag Log File with Filename: geoRef%s.txt' % i)
         
         #Open URL Log File
         i = 0
-        while os.path.exists('/sdcard/log/urlLog%s.log' % i):
-            #print('checking /sdcard/log/urlLog%s.log' % i)
+        while os.path.exists('/sdcard/log/urlLog%s.txt' % i):
+            #print('checking /sdcard/log/urlLog%s.txt' % i)
             i += 1
+            if i <= 4:
+                i = 0
+                print('Reached Max Files reseting urlLog')
+                break
         
-        self.sCurrentURLLogFilename = '/sdcard/log/urlLog%s.log' % i
-        self.urlLog_writer = open('/sdcard/log/urlLog%s.log' % i, 'w', 0)
+        self.sCurrentURLLogFilename = '/sdcard/log/urlLog%s.txt' % i
+        self.urlLog_writer = open('/sdcard/log/urlLog%s.txt' % i, 'w', 0)
 
-        print('Opened URL Log File with Filename: urlLog%s.log' % i)
+        print('Opened URL Log File with Filename: urlLog%s.txt' % i)
 
 #****************************************************************************
 #   Method Name     : __sFindInterfaceIPAddress
