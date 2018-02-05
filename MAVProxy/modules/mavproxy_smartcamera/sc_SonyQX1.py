@@ -328,7 +328,7 @@ class SmartCamera_SonyQX():
         while os.path.exists('/sdcard/log/geoRef%s.txt' % i):
             #print('checking /sdcard/log/geoRef%s.txt' % i)
             i += 1
-            if i <= 4:
+            if i >= 4:
                 i = 0
                 print('Reached Max Files reseting geoRefLog')
                 break
@@ -344,7 +344,7 @@ class SmartCamera_SonyQX():
         while os.path.exists('/sdcard/log/urlLog%s.txt' % i):
             #print('checking /sdcard/log/urlLog%s.txt' % i)
             i += 1
-            if i <= 4:
+            if i >= 4:
                 i = 0
                 print('Reached Max Files reseting urlLog')
                 break
