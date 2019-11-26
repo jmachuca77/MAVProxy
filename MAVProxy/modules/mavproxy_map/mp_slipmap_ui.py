@@ -449,7 +449,7 @@ class MPSlipMapPanel(wx.Panel):
                                             self.click_pos[0], self.click_pos[1])
             bearing = mp_util.gps_bearing(self.last_click_pos[0], self.last_click_pos[1],
                                             self.click_pos[0], self.click_pos[1])
-            newtext += '  Distance: %.1fm %.1fnm Bearing %.1f' % (distance, distance*0.000539957, bearing)
+            newtext += '  Distance: %.3fm %.3fnm Bearing %.1f' % (distance, distance*0.000539957, bearing)
         if newtext != state.oldtext:
             self.position.Clear()
             self.position.WriteText(newtext)
