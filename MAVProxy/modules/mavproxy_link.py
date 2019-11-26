@@ -317,8 +317,8 @@ class LinkModule(mp_module.MPModule):
 
         msec = m.time_boot_ms
         if msec + 30000 < master.highest_msec:
-            self.say('Time has wrapped')
-            print('Time has wrapped', msec, master.highest_msec)
+            #self.say('Time has wrapped')
+            #print('Time has wrapped', msec, master.highest_msec)
             self.status.highest_msec = msec
             for mm in self.mpstate.mav_master:
                 mm.link_delayed = False
