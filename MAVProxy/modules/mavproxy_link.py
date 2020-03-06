@@ -44,9 +44,7 @@ class LinkModule(mp_module.MPModule):
                           'remove (LINKS)'])
         self.add_command('vehicle', self.cmd_vehicle, "vehicle control")
         self.add_command('alllinks', self.cmd_alllinks, "send command on all links")
-        self.add_command('verbose', self.cmd_verbose, "enable error messages", 
-                         ["true",
-                         "false"])
+        self.add_command('verbose', self.cmd_verbose, "enable error messages")
         self.no_fwd_types = set()
         self.no_fwd_types.add("BAD_DATA")
         self.add_completion_function('(SERIALPORT)', self.complete_serial_ports)
