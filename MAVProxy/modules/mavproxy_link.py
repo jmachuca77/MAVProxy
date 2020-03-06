@@ -44,6 +44,9 @@ class LinkModule(mp_module.MPModule):
                           'remove (LINKS)'])
         self.add_command('vehicle', self.cmd_vehicle, "vehicle control")
         self.add_command('alllinks', self.cmd_alllinks, "send command on all links")
+        self.add_command('verbose', self.cmd_verbose, "enable error messages", 
+                         ["true",
+                         "false"])
         self.no_fwd_types = set()
         self.no_fwd_types.add("BAD_DATA")
         self.add_completion_function('(SERIALPORT)', self.complete_serial_ports)
@@ -51,6 +54,8 @@ class LinkModule(mp_module.MPModule):
         self.add_completion_function('(LINK)', self.complete_links)
         self.last_altitude_announce = 0.0
         self.vehicle_list = set()
+
+        self.verbose = True
 
         self.menu_added_console = False
         if mp_util.has_wxpython:
@@ -340,8 +345,9 @@ class LinkModule(mp_module.MPModule):
         msec = m.time_boot_ms
         sysid = m.get_srcSystem()
         if msec + 30000 < master.highest_msec.get(sysid,0):
-            self.say('Time has wrapped')
-            print('Time has wrapped', msec, master.highest_msec.get(sysid,0))
+            if self.verbose:
+                self.say('Time has wrapped')
+                print('Time has wrapped', msec, master.highest_msec.get(sysid,0))
             self.status.highest_msec[sysid] = msec
             for mm in self.mpstate.mav_master:
                 mm.link_delayed = False
@@ -756,6 +762,20 @@ class LinkModule(mp_module.MPModule):
                         exc_type, exc_value, exc_traceback = sys.exc_info()
                         traceback.print_exception(exc_type, exc_value, exc_traceback,
                                                   limit=2, file=sys.stdout)
+
+    def cmd_verbose(self, args):
+        '''quiet messages'''
+        if len(args) < 1:
+            print("Usage: verbose <true|false>")
+            return
+        a = args[0]
+        if a == "true":
+            self.verbose = True
+            print("All messages enabled")
+        else:
+            self.verbose = False
+            print("Messages will be silenced")
+
 
     def cmd_vehicle(self, args):
         '''handle vehicle commands'''
