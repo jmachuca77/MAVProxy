@@ -79,6 +79,11 @@ class DGPSModule(mp_module.MPModule):
     def dgps_status(self):
         '''show dgps status'''
         now = time.time()
+        print("DGPS Configuration:")
+        print("Connection Type: %s" % self.dgps_settings.conntype)
+        print("IP Address: %s" % self.dgps_settings.ip)
+        print("Port: %s" % self.dgps_settings.port)
+        
         if self.port is None:
             print("DGPS: Not started")
             return
