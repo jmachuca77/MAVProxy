@@ -612,7 +612,8 @@ class LinkModule(mp_module.MPModule):
                 cmd = cmd[8:]
                 res = mavutil.mavlink.enums["MAV_RESULT"][m.result].name
                 res = res[11:]
-                self.mpstate.console.writeln("Got COMMAND_ACK: %s: %s" % (cmd, res))
+                if self.verbose:
+                    self.mpstate.console.writeln("Got COMMAND_ACK: %s: %s" % (cmd, res))
             except Exception:
                 if self.verbose:
                     self.mpstate.console.writeln("Got MAVLink msg: %s" % m)
@@ -634,7 +635,8 @@ class LinkModule(mp_module.MPModule):
                 t = t[12:]
                 res = mavutil.mavlink.enums["MAV_MISSION_RESULT"][m.type].name
                 res = res[12:]
-                self.mpstate.console.writeln("Got MISSION_ACK: %s: %s" % (t, res))
+                if self.verbose:
+                    self.mpstate.console.writeln("Got MISSION_ACK: %s: %s" % (t, res))
             except Exception as e:
                 if self.verbose:
                     self.mpstate.console.writeln("Got MAVLink msg: %s" % m)
