@@ -614,7 +614,8 @@ class LinkModule(mp_module.MPModule):
                 res = res[11:]
                 self.mpstate.console.writeln("Got COMMAND_ACK: %s: %s" % (cmd, res))
             except Exception:
-                self.mpstate.console.writeln("Got MAVLink msg: %s" % m)
+                if self.verbose:
+                    self.mpstate.console.writeln("Got MAVLink msg: %s" % m)
 
             if m.command == mavutil.mavlink.MAV_CMD_PREFLIGHT_CALIBRATION:
                 if m.result == mavutil.mavlink.MAV_RESULT_ACCEPTED:
@@ -635,7 +636,8 @@ class LinkModule(mp_module.MPModule):
                 res = res[12:]
                 self.mpstate.console.writeln("Got MISSION_ACK: %s: %s" % (t, res))
             except Exception as e:
-                self.mpstate.console.writeln("Got MAVLink msg: %s" % m)
+                if self.verbose:
+                    self.mpstate.console.writeln("Got MAVLink msg: %s" % m)
         else:
             #self.mpstate.console.writeln("Got MAVLink msg: %s" % m)
             pass
