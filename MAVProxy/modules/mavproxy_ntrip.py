@@ -46,7 +46,13 @@ class NtripModule(mp_module.MPModule):
             data = json.load(f)
 
         # Output: {'name': 'Bob', 'languages': ['English', 'Fench']}
-        print(data)
+        
+        self.ntrip_settings.caster = data['ntripCaster']
+        self.ntrip_settings.port = data['ntripPort']
+        self.ntrip_settings.username = data['ntripUsername']
+        self.ntrip_settings.password = data['ntripPassword']
+        self.ntrip_settings.mountpoint = data['ntripMountpoint']
+        print(self.ntrip_settings)
 
     def mavlink_packet(self, msg):
         '''handle an incoming mavlink packet'''
