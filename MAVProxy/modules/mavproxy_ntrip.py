@@ -3,6 +3,7 @@ send NTRIP data to flight controller
 """
 
 import time
+import json
 
 from MAVProxy.modules.lib import mp_module
 from MAVProxy.modules.lib import ntrip
@@ -41,6 +42,11 @@ class NtripModule(mp_module.MPModule):
         self.logfile = None
         self.id_counts = {}
         self.last_by_id = {}
+        with open('/media/psf/Home/Developer/AION/Workers/worker_rtcm_injector/settings.json') as f:
+            data = json.load(f)
+
+        # Output: {'name': 'Bob', 'languages': ['English', 'Fench']}
+        print(data)
 
     def mavlink_packet(self, msg):
         '''handle an incoming mavlink packet'''
