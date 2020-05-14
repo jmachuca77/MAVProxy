@@ -42,7 +42,7 @@ class NtripModule(mp_module.MPModule):
         self.logfile = None
         self.id_counts = {}
         self.last_by_id = {}
-        with open('/media/psf/Home/Developer/AION/Workers/worker_rtcm_injector/settings.json') as f:
+        with open('/home/aion/GitHub/sprayer_workers/worker_rtcm_injector/settings.json') as f:
             data = json.load(f)
 
         # Output: {'name': 'Bob', 'languages': ['English', 'Fench']}
