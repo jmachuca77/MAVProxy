@@ -14,6 +14,7 @@ Set the RTCM Messages to 10Hz and enable any that are needed.
 '''
 
 import socket, errno, threading
+import serial
 import time
 from MAVProxy.modules.lib import rtcm3
 from pymavlink import mavutil
@@ -28,6 +29,8 @@ class DGPSModule(mp_module.MPModule):
             [('ip', str, "127.0.0.1"),
              ('port', int, 13320),
              ('conntype', str, 'UDP'),
+             ('serial', str, '/dev/ttyACM0'),
+             ('baudrate', int, 115200),
              ('silentFail', bool, True),
              ('logfile', str, None),
              ('connectionTimeout', int, 10)
@@ -90,6 +93,9 @@ class DGPSModule(mp_module.MPModule):
         elif self.dgps_settings.conntype == "TCP":
             print("Connecting to TCP RTCM Stream")
             self.connect_tcp_rtcm_base(self.dgps_settings.ip, self.dgps_settings.port)
+        elif self.dgps_settings.conntype == "serial":
+            print("Connecting to Serial RTCM Stream")
+            self.connect_serial_rtcm_base(self.dgps_settings.serial, self.dgps_settings.baudrate)
         else:
             print("Undefined connection type!")
             return    
@@ -102,8 +108,12 @@ class DGPSModule(mp_module.MPModule):
         now = time.time()
         print("\nDGPS Configuration:")
         print("Connection Type: %s" % self.dgps_settings.conntype)
-        print("IP Address: %s" % self.dgps_settings.ip)
-        print("Port: %s" % self.dgps_settings.port)
+        if(self.dgps_settings.conntype != "serial"):
+            print("IP Address: %s" % self.dgps_settings.ip)
+            print("Port: %s" % self.dgps_settings.port)
+        else:
+            print("Port: %s" % self.dgps_settings.serial)
+            print("Baudrate: %d" % self.dgps_settings.baudrate)
         
         if self.waiting is True:
             print("Connection Error attempting to reconnect")
@@ -121,6 +131,14 @@ class DGPSModule(mp_module.MPModule):
             print(" %4u: %u (len %u)" % (id, self.id_counts[id], len(self.last_by_id[id])))
             frame_size += len(self.last_by_id[id])
         print("dgps: %u packets, %.2f bytes/sec last %.3fs ago framesize %u" % (self.pkt_count, self.rate, now - self.last_pkt, frame_size))
+
+    def connect_serial_rtcm_base(self, port, baudrate):
+        try:
+            self.port = serial.Serial(port,baudrate,timeout=1) 
+        except serial.SerialException as e:
+            print("Error: %s" % e)
+            return
+        print("DGPS: Listening for RTCM packets on serial:%s:%d" % (port, baudrate))
 
     def connect_udp_rtcm_base(self, ip, port):
         print ("UDP Connection")
@@ -159,13 +177,14 @@ class DGPSModule(mp_module.MPModule):
 
     def idle_task(self):
         '''called in idle time'''
+        data = None
         # Dont do anything if no recieve port is set
         if self.port is None:
             return
 
         # Check to see if we have not recieved packets in a long time and try to reconnect
         now = time.time()
-        if self.waiting is False and now - self.last_pkt > self.dgps_settings.connectionTimeout:
+        if self.waiting is False and now - self.last_pkt > self.dgps_settings.connectionTimeout and self.dgps_settings.conntype != "serial":
             print("Lost Packets attempting reconnection")
             self.cmd_stop()
             self.cmd_start()
@@ -177,66 +196,71 @@ class DGPSModule(mp_module.MPModule):
                     print("Attempting to connect")
                 self.connect_tcp_rtcm_base(self.dgps_settings.ip, self.dgps_settings.port)
             return
-
-        # Read data from socket
-        try:
-            data = self.port.recv(1024) # Attempt to read up to 1024 bytes.
-        except socket.error as e:
-            if e.errno in [ errno.EAGAIN, errno.EWOULDBLOCK ]:
-                return
-            raise
+       
+        if self.dgps_settings.conntype != "serial":
+            # Read data from socket
+            try:
+                data = self.port.recv(1024) # Attempt to read up to 1024 bytes.
+            except socket.error as e:
+                if e.errno in [ errno.EAGAIN, errno.EWOULDBLOCK ]:
+                    return
+                raise
+        else:
+            if (self.port.inWaiting()>0): #if incoming bytes are waiting to be read from the serial input buffer
+                data = self.port.read(self.port.inWaiting()) #read the bytes and convert from binary array to ASCII
 
         # Parse and send RTCM3 data
-        for element in data:  # RTCM3 Library expects to read one byte at a time
-            if self.rtcm3.read(element):    # Data sent to rtcm library, it returns data once a full packet is recieved
-                self.last_id = self.rtcm3.get_packet_ID()
-                rtcm3Data = self.rtcm3.get_packet()
-                if self.rtcm3.get_packet() is None:
-                    print ("No packet")
-                    return
+        if data:
+            for element in data:  # RTCM3 Library expects to read one byte at a time
+                if self.rtcm3.read(element):    # Data sent to rtcm library, it returns data once a full packet is recieved
+                    self.last_id = self.rtcm3.get_packet_ID()
+                    rtcm3Data = self.rtcm3.get_packet()
+                    if self.rtcm3.get_packet() is None:
+                        print ("No packet")
+                        return
 
-                self.log_rtcm(rtcm3Data)    # Log the packet
-                
-                # Store statistics for each RTCM Packet ID
-                if not self.last_id in self.id_counts:
-                    self.id_counts[self.last_id] = 0
-                    self.last_by_id[self.last_id] = rtcm3Data[:]
-                self.id_counts[self.last_id] += 1     
+                    self.log_rtcm(rtcm3Data)    # Log the packet
+                    
+                    # Store statistics for each RTCM Packet ID
+                    if not self.last_id in self.id_counts:
+                        self.id_counts[self.last_id] = 0
+                        self.last_by_id[self.last_id] = rtcm3Data[:]
+                    self.id_counts[self.last_id] += 1     
 
-                # Prepare to send the RTCM3 Data through MAVLink
-                blen = len(rtcm3Data)
-                if blen > 4*180: # can't send this with GPS_RTCM_DATA (wont fit even on fragmented packets?)
-                    if self.dgps_settings.silentFail is False:
-                        print("Error, cannot send data with GPS_RTCM_DATA")
-                    return
+                    # Prepare to send the RTCM3 Data through MAVLink
+                    blen = len(rtcm3Data)
+                    if blen > 4*180: # can't send this with GPS_RTCM_DATA (wont fit even on fragmented packets?)
+                        if self.dgps_settings.silentFail is False:
+                            print("Error, cannot send data with GPS_RTCM_DATA")
+                        return
 
-                self.rate_total += blen
+                    self.rate_total += blen
 
-                # Check if data needs to be fragmented
-                if blen > 180:
-                    flags = 1 # fragmented
-                else:
-                    flags = 0
+                    # Check if data needs to be fragmented
+                    if blen > 180:
+                        flags = 1 # fragmented
+                    else:
+                        flags = 0
 
-                # add in the sequence number
-                flags |= (self.pkt_count & 0x1F) << 3
+                    # add in the sequence number
+                    flags |= (self.pkt_count & 0x1F) << 3
 
-                # Send data through MAVLink
-                fragment = 0
-                while blen > 0:
-                    send_data = bytearray(rtcm3Data[:180])
-                    frag_len = len(send_data)
-                    data = rtcm3Data[frag_len:]
-                    if frag_len < 180:
-                        send_data.extend(bytearray([0]*(180-frag_len)))
-                    self.master.mav.gps_rtcm_data_send(flags | (fragment<<1), frag_len, send_data)
-                    fragment += 1
-                    blen -= frag_len
-                self.pkt_count += 1
+                    # Send data through MAVLink
+                    fragment = 0
+                    while blen > 0:
+                        send_data = bytearray(rtcm3Data[:180])
+                        frag_len = len(send_data)
+                        data = rtcm3Data[frag_len:]
+                        if frag_len < 180:
+                            send_data.extend(bytearray([0]*(180-frag_len)))
+                        self.master.mav.gps_rtcm_data_send(flags | (fragment<<1), frag_len, send_data)
+                        fragment += 1
+                        blen -= frag_len
+                    self.pkt_count += 1
 
-                # Store time of last packet sent
-                now = time.time()
-                self.last_pkt = now
+                    # Store time of last packet sent
+                    now = time.time()
+                    self.last_pkt = now
 
         # Calculate the rate at which we are reciving data for stats
         now = time.time()
