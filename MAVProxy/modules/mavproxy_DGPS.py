@@ -186,7 +186,7 @@ class DGPSModule(mp_module.MPModule):
         '''called in idle time'''
         data = None
         # Dont do anything if no recieve port is set
-        if self.port is None:
+        if self.port is None and self.waiting is False and self.dgps_settings.conntype != "serial":
             print('Port is none!')
             return
 
