@@ -133,11 +133,17 @@ class DGPSModule(mp_module.MPModule):
         print("dgps: %u packets, %.2f bytes/sec last %.3fs ago framesize %u" % (self.pkt_count, self.rate, now - self.last_pkt, frame_size))
 
     def connect_serial_rtcm_base(self, port, baudrate):
+        if self.waiting is False:
+            print ("Serial Connection Start")
         try:
             self.port = serial.Serial(port,baudrate,timeout=1) 
         except serial.SerialException as e:
-            print("Error: %s" % e)
+            if self.dgps_settings.silentFail is False:
+                print("Error: %s" % e)
+            self.lastConnAttempt = time.time()
+            self.waiting = True
             return
+        self.waiting = False
         print("DGPS: Listening for RTCM packets on serial:%s:%d" % (port, baudrate))
 
     def connect_udp_rtcm_base(self, ip, port):
@@ -184,17 +190,20 @@ class DGPSModule(mp_module.MPModule):
 
         # Check to see if we have not recieved packets in a long time and try to reconnect
         now = time.time()
-        if self.waiting is False and now - self.last_pkt > self.dgps_settings.connectionTimeout and self.dgps_settings.conntype != "serial":
+        if self.waiting is False and now - self.last_pkt > self.dgps_settings.connectionTimeout:
             print("Lost Packets attempting reconnection")
             self.cmd_stop()
             self.cmd_start()
 
         # Try to reconnect in case the connection attempt failed. 
-        if self.waiting is True and self.dgps_settings.conntype == "TCP":
+        if self.waiting is True and self.dgps_settings.conntype == "TCP" or self.dgps_settings.conntype == "serial":
             if (time.time() - self.lastConnAttempt) > 2.5:
                 if self.dgps_settings.silentFail is False:
                     print("Attempting to connect")
-                self.connect_tcp_rtcm_base(self.dgps_settings.ip, self.dgps_settings.port)
+                if self.dgps_settings.conntype == "TCP":
+                    self.connect_tcp_rtcm_base(self.dgps_settings.ip, self.dgps_settings.port)
+                if self.dgps_settings.conntype == "serial":
+                    self.connect_serial_rtcm_base(self.dgps_settings.serial, self.dgps_settings.baudrate)
             return
        
         if self.dgps_settings.conntype != "serial":
