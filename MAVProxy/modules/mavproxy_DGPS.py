@@ -215,8 +215,13 @@ class DGPSModule(mp_module.MPModule):
                     return
                 raise
         else:
-            if (self.port.inWaiting()>0): #if incoming bytes are waiting to be read from the serial input buffer
-                data = self.port.read(self.port.inWaiting()) #read the bytes and convert from binary array to ASCII
+            try:
+                if (self.port.inWaiting()>0): #if incoming bytes are waiting to be read from the serial input buffer
+                    data = self.port.read(self.port.inWaiting()) #read the bytes and convert from binary array to ASCII
+            except serial.SerialException as e:
+                print("Exception: %s" % e)
+            except TypeError as e:
+                print("TypeError %s" % e)
 
         # Parse and send RTCM3 data
         if data:
