@@ -187,6 +187,7 @@ class DGPSModule(mp_module.MPModule):
         data = None
         # Dont do anything if no recieve port is set
         if self.port is None:
+            print('Port is none!')
             return
 
         # Check to see if we have not recieved packets in a long time and try to reconnect
