@@ -196,7 +196,12 @@ class DGPSModule(mp_module.MPModule):
             self.cmd_start()
 
         # Try to reconnect in case the connection attempt failed. 
-        if self.waiting is True and (self.dgps_settings.conntype == "TCP" or self.dgps_settings.conntype == "serial"):
+        if self.waiting is True:
+
+            if self.dgps_settings.connType == "UDP":
+                print("Error waiting for UDP is not allowed")
+                return
+
             if (time.time() - self.lastConnAttempt) > 2.5:
                 if self.dgps_settings.silentFail is False:
                     print("Attempting to connect")
