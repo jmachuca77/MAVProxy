@@ -133,6 +133,7 @@ class DGPSModule(mp_module.MPModule):
         print("dgps: %u packets, %.2f bytes/sec last %.3fs ago framesize %u" % (self.pkt_count, self.rate, now - self.last_pkt, frame_size))
 
     def connect_serial_rtcm_base(self, port, baudrate):
+        self.lastConnAttempt = time.time()
         if self.waiting is False:
             print ("Serial Connection Start")
         try:
@@ -140,7 +141,6 @@ class DGPSModule(mp_module.MPModule):
         except serial.SerialException as e:
             if self.dgps_settings.silentFail is False:
                 print("Error: %s" % e)
-            self.lastConnAttempt = time.time()
             self.waiting = True
             return
         self.waiting = False
