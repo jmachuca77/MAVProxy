@@ -203,7 +203,7 @@ class DGPSModule(mp_module.MPModule):
             if self.dgps_settings.conntype == "UDP":
                 print("Error waiting for UDP is not allowed")
                 return
-            print(time.time() - self.lastConnAttempt)
+            
             if (time.time() - self.lastConnAttempt) > 2.5:
                 if self.dgps_settings.silentFail is False:
                     print("Attempting to connect")
