@@ -45,7 +45,7 @@ class DGPSModule(mp_module.MPModule):
 
         self.port = None    
         self.waiting = False  
-        self.lastConnAttempt = None
+        self.lastConnAttempt = time.time()
         self.last_pkt = time.time()
         self.inject_seq_nr = 0
         self.pkt_count = 0
