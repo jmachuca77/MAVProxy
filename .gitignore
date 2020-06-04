@@ -1,4 +1,4 @@
-mavproxy
+mavproxy -f
 *~
 *.o
 *.pyc

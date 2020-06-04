@@ -134,6 +134,7 @@ class DGPSModule(mp_module.MPModule):
 
     def connect_serial_rtcm_base(self, port, baudrate):
         self.lastConnAttempt = time.time()
+        self.last_pkt = time.time()
         if self.waiting is False:
             print ("Serial Connection Start")
         try:
